@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>우리민요 반주음악 제작 현황</title>
+
+  <!-- ===== 외부 리소스 ===== -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+
+  <!-- ===== 테마 (청자·자주 계열) ===== -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            celadon: { 50: '#F2F7F4', 100: '#E2EDE7', 200: '#C5DBCF', 400: '#86AE9C', 600: '#4F7F6D', 700: '#3F6B5C', 800: '#2F5145', 900: '#1F362E' },
+            jaju:    { 50: '#F8EEF2', 300: '#C98AA6', 500: '#8E3B5E', 700: '#6B2645' },
+            ink:     { 50: '#FAFAF8', 100: '#F1F1EE', 200: '#DCDCD6', 400: '#9A9A93', 600: '#5E5E58', 800: '#2E2E2B' }
+          },
+          fontFamily: {
+            serif: ['"Gowun Batang"', 'serif'],
+            sans: ['"IBM Plex Sans KR"', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- ===== 공통 컴포넌트 스타일 ===== -->
+  <style type="text/tailwindcss">
+    @layer components {
+      .focus-ring      { @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-celadon-700; }
+      .touch-button    { @apply min-h-[44px] rounded-md px-3 text-sm; }
+      .table-frame     { @apply mt-3 overflow-hidden rounded-lg border border-ink-200 bg-white; }
+      .table-head      { @apply border-b border-ink-200 bg-celadon-50 text-[11px] text-celadon-800 sm:text-xs md:text-sm; }
+      .table-head th   { @apply py-2 font-semibold; }
+      .cell-small      { @apply text-[11px] sm:text-sm; }
+      .cell-empty      { @apply px-4 py-10 text-center text-sm text-ink-600; }
+      .status-pill     { @apply block rounded py-1 text-[11px] leading-tight sm:text-xs md:text-sm; }
+      .status-wait     { @apply text-ink-400; }
+      .status-working  { @apply bg-jaju-500 font-semibold text-white; }
+      .status-done     { @apply bg-celadon-100 text-celadon-800; }
+      .notice          { @apply mt-4 rounded-md px-3 py-2 text-sm text-jaju-700; }
+    }
+  </style>
+</head>
+
+<body class="bg-ink-50 font-sans text-ink-800 antialiased">
+  <!-- ===== 헤더·페이지 이동 ===== -->
+  <header class="border-b border-celadon-200 bg-white">
+    <div class="mx-auto max-w-4xl px-3 pt-5 sm:px-6 md:px-8 md:pt-7">
+      <p class="text-xs text-celadon-700 sm:text-sm">국악방송 유튜브 · 반주음악 제작</p>
+      <h1 class="mt-1 font-serif text-xl font-bold text-celadon-900 sm:text-2xl md:text-3xl">우리민요 반주음악 제작 현황</h1>
+      <nav aria-label="페이지" class="mt-4 flex gap-1">
+        <a href="#work" data-view-link="work" class="focus-ring flex min-h-[44px] items-center border-b-2 px-3 text-sm md:text-base">작업 현황</a>
+        <a href="#songs" data-view-link="songs" class="focus-ring flex min-h-[44px] items-center border-b-2 px-3 text-sm md:text-base">곡 자료</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-4xl px-3 pb-16 sm:px-6 md:px-8">
+    <!-- ===== 알림·공통 도구 ===== -->
+    <p id="error-notice" role="alert" class="notice hidden border border-jaju-300 bg-jaju-50"></p>
+
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+      <div id="region-tabs" class="flex flex-wrap gap-1" role="group" aria-label="지역"></div>
+      <div class="flex items-center gap-3 text-xs text-ink-600">
+        <span id="loaded-at"></span>
+        <button id="reload-button" type="button" class="touch-button focus-ring border border-celadon-400 text-celadon-800 hover:bg-celadon-50 disabled:opacity-50">새로고침</button>
+      </div>
+    </div>
+
+    <!-- ===== 작업 현황 ===== -->
+    <section id="view-work" aria-labelledby="work-title" class="mt-4">
+      <h2 id="work-title" class="sr-only">작업 현황</h2>
+      <p id="work-summary" class="text-sm text-ink-600" aria-live="polite"></p>
+      <div class="table-frame">
+        <table class="w-full table-fixed text-left">
+          <colgroup>
+            <col class="w-7 sm:w-10"><col class="w-9 sm:w-14"><col>
+            <col class="w-10 sm:w-14 md:w-20"><col class="w-10 sm:w-14 md:w-20"><col class="w-10 sm:w-14 md:w-20"><col class="w-10 sm:w-14 md:w-20">
+          </colgroup>
+          <thead class="table-head">
+            <tr>
+              <th scope="col" class="text-center">순서</th>
+              <th scope="col">지역</th>
+              <th scope="col">곡제목</th>
+              <th scope="col" class="text-center">음원</th>
+              <th scope="col" class="text-center">캡션</th>
+              <th scope="col" class="text-center">영상</th>
+              <th scope="col" class="text-center">업로드</th>
+            </tr>
+          </thead>
+          <tbody id="work-rows" class="divide-y divide-ink-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== 곡 자료 ===== -->
+    <section id="view-songs" aria-labelledby="songs-title" class="mt-4 hidden">
+      <h2 id="songs-title" class="sr-only">곡 자료</h2>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p id="songs-summary" class="text-sm text-ink-600" aria-live="polite"></p>
+        <div class="w-full sm:w-56">
+          <label for="song-search" class="sr-only">곡명 검색</label>
+          <input id="song-search" type="search" placeholder="곡명 검색" autocomplete="off"
+            class="min-h-[44px] w-full rounded-md border border-ink-200 bg-white px-3 text-base placeholder:text-ink-400 focus:border-celadon-600 focus:outline-none focus:ring-2 focus:ring-celadon-200">
+        </div>
+      </div>
+      <div class="table-frame">
+        <table class="w-full table-fixed text-left">
+          <colgroup><col class="w-8 sm:w-10"><col class="w-14 sm:w-20"><col><col class="w-[4.5rem] sm:w-24"></colgroup>
+          <thead class="table-head">
+            <tr>
+              <th scope="col" class="text-center">번호</th>
+              <th scope="col">지역</th>
+              <th scope="col">곡명</th>
+              <th scope="col" class="text-center">캡션 수정</th>
+            </tr>
+          </thead>
+          <tbody id="song-rows" class="divide-y divide-ink-100"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== 가사 팝업 ===== -->
+  <dialog id="lyrics-dialog" aria-labelledby="lyrics-title"
+    class="m-0 mt-auto max-h-[88vh] w-full max-w-none rounded-t-xl bg-white p-0 text-ink-800 backdrop:bg-ink-800/50 md:m-auto md:max-w-xl md:rounded-xl">
+    <article class="flex max-h-[88vh] flex-col">
+      <header class="flex items-start justify-between gap-3 border-b border-ink-100 px-5 py-4">
+        <div class="min-w-0">
+          <p id="lyrics-meta" class="text-sm text-celadon-700"></p>
+          <h2 id="lyrics-title" class="mt-0.5 text-2xl font-bold text-celadon-900"></h2>
+          <p id="lyrics-check" class="mt-2 inline-block rounded px-2 py-0.5 text-xs"></p>
+        </div>
+        <button id="lyrics-close" type="button" aria-label="닫기"
+          class="focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink-600 hover:bg-ink-100">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+        </button>
+      </header>
+      <div class="overflow-y-auto px-5 py-5">
+        <div id="lyrics-body"></div>
+        <dl id="lyrics-info" class="mt-6 grid grid-cols-[4rem_1fr] gap-y-1.5 border-t border-ink-100 pt-4 text-sm"></dl>
+      </div>
+    </article>
+  </dialog>
+
+
+  <script>
+    'use strict';
+
+    /* ===== 설정: 연결할 구글 시트 =====
+       시트 공유 설정이 '링크가 있는 모든 사용자 · 뷰어'여야 읽을 수 있습니다.
+       다른 시트로 바꾸려면 주소의 /d/ 와 /edit 사이 값을 SHEET_ID에 넣으세요. */
+    const SHEET_ID = '1TEyeOJ1UA7JYm2bRa1N172aL-FS7oDfIgEzev8a38_E';
+    const SHEET_TABS = { work: '진행현황', songs: '곡자료' };
+
+    /* ===== 상수 ===== */
+    const REGIONS = ['경기민요', '남도민요', '서도민요'];
+    const WORK_STEPS = ['음원', '캡션', '영상'];
+    const STEP_STATUSES = ['대기', '작업중', '완료'];
+    const STATUS_CLASS = { 대기: 'status-wait', 작업중: 'status-working', 완료: 'status-done' };
+    const CHECKED_VALUES = new Set(['true', '1', 'o', 'v', 'y', '✓', '✔', '확인', '완료']);
+    const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+    const VIEWS = {
+      work:  { tabs: ['전체', ...REGIONS], defaultTab: '전체',     tabLabel: tab => (tab === '전체' ? tab : shortRegionName(tab)) },
+      songs: { tabs: REGIONS,              defaultTab: '경기민요', tabLabel: tab => tab }
+    };
+
+
+    /* ===== 상태·DOM 참조 ===== */
+    const state = {
+      view: 'work',
+      activeTab: { work: VIEWS.work.defaultTab, songs: VIEWS.songs.defaultTab },
+      songQuery: '',
+      workItems: [],
+      songs: [],
+      lastOpenedSong: null
+    };
+
+    const dom = Object.fromEntries([
+      'error-notice', 'region-tabs', 'loaded-at', 'reload-button',
+      'view-work', 'work-summary', 'work-rows',
+      'view-songs', 'songs-summary', 'song-search', 'song-rows',
+      'lyrics-dialog', 'lyrics-meta', 'lyrics-title', 'lyrics-check', 'lyrics-close', 'lyrics-body', 'lyrics-info'
+    ].map(id => [id.replace(/-(\w)/g, (_, c) => c.toUpperCase()), document.getElementById(id)]));
+    const viewLinks = document.querySelectorAll('[data-view-link]');
+
+    /* ===== 유틸리티 ===== */
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => HTML_ESCAPES[ch]);
+    const toText = value => String(value ?? '').trim();
+    const shortRegionName = region => region.replace('민요', '');
+    const normalizeTitle = title => title.replace(/\s/g, '');
+
+    function toRegion(value) {
+      const text = toText(value);
+      if (!text) return '';
+      return REGIONS.find(region => region.startsWith(text.slice(0, 2))) || text;
+    }
+
+    function toStepStatus(value) {
+      const text = toText(value).replace(/\s/g, ''); // '작업 중' → '작업중'
+      return STEP_STATUSES.includes(text) ? text : '대기';
+    }
+
+    const isChecked = value => CHECKED_VALUES.has(toText(value).toLowerCase());
+
+    function formatUploadDate(value) {
+      const text = toText(value);
+      const match = text.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+      return match ? `${Number(match[2])}.${Number(match[3])}` : text;
+    }
+
+    function formatTime(date) {
+      return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
+
+    /* ===== CSV 읽기 (가사처럼 줄바꿈·쉼표가 든 칸도 처리) ===== */
+    function parseCsv(text) {
+      const rows = [];
+      let row = [], field = '', inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+          if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+          else if (ch === '"') inQuotes = false;
+          else field += ch;
+        } else if (ch === '"') inQuotes = true;
+        else if (ch === ',') { row.push(field); field = ''; }
+        else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else if (ch !== '\r') field += ch;
+      }
+      if (field || row.length) { row.push(field); rows.push(row); }
+      return rows;
+    }
+
+    function csvToObjects(text) {
+      const [header = [], ...rows] = parseCsv(text);
+      const keys = header.map(key => key.trim());
+      return rows.map(row => Object.fromEntries(keys.map((key, i) => [key, row[i] ?? ''])));
+    }
+
+    /* ===== 데이터 변환 ===== */
+    function parseWorkRows(rows) {
+      return rows
+        .map((row, sheetIndex) => ({
+          order: toText(row['순서']),
+          region: toRegion(row['지역']),
+          title: toText(row['곡제목']),
+          steps: WORK_STEPS.map(step => toStepStatus(row[step])),
+          uploadDate: formatUploadDate(row['업로드일']),
+          sheetIndex
+        }))
+        .filter(item => item.title) // 곡제목이 입력된 행부터 작업 시작
+        .sort((a, b) => (Number(b.order) || Infinity) - (Number(a.order) || Infinity) || b.sheetIndex - a.sheetIndex);
+    }
+
+    function parseSongRows(rows) {
+      return rows
+        .filter(row => toText(row['곡명']))
+        .map(row => ({
+          region: toRegion(row['지역']),
+          number: toText(row['번호']),
+          title: toText(row['곡명']),
+          accompaniment: toText(row['반주정보']),
+          performer: toText(row['연주']),
+          lyrics: toText(row['가사']),
+          captionChecked: isChecked(row['캡션수정']),
+          note: toText(row['비고'])
+        }))
+        .sort((a, b) => (Number(a.number) || 999) - (Number(b.number) || 999))
+        .map((song, index) => ({ ...song, index }));
+    }
+
+    /* ===== 데이터 불러오기 (구글 시트 → CSV) ===== */
+    async function fetchSheetTab(tabName) {
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1`
+        + `&sheet=${encodeURIComponent(tabName)}&t=${Date.now()}`;
+      let response;
+      try {
+        response = await fetch(url, { cache: 'no-store' });
+      } catch {
+        throw new Error('시트에 접속하지 못했습니다. 공유 설정을 확인하세요');
+      }
+      if (!response.ok) throw new Error(`'${tabName}' 탭을 읽지 못했습니다(${response.status})`);
+      const text = await response.text();
+      if (text.trimStart().startsWith('<')) throw new Error(`'${tabName}' 탭을 읽지 못했습니다`);
+      return csvToObjects(text);
+    }
+
+    async function loadData() {
+      dom.reloadButton.disabled = true;
+      dom.errorNotice.classList.add('hidden');
+
+      try {
+        const [workRows, songRows] = await Promise.all([fetchSheetTab(SHEET_TABS.work), fetchSheetTab(SHEET_TABS.songs)]);
+        state.workItems = parseWorkRows(workRows);
+        state.songs = parseSongRows(songRows);
+        dom.loadedAt.textContent = `${formatTime(new Date())} 기준`;
+      } catch (error) {
+        dom.errorNotice.textContent = `${error.message}. 시트 공유가 '링크가 있는 모든 사용자 · 뷰어'인지, 탭 이름이 '진행현황'과 '곡자료'인지 확인하세요.`;
+        dom.errorNotice.classList.remove('hidden');
+      } finally {
+        dom.reloadButton.disabled = false;
+        render();
+      }
+    }
+
+    /* ===== 공통 렌더링: 페이지 이동·지역 탭 ===== */
+    const activeTab = () => state.activeTab[state.view];
+    const matchesTab = item => activeTab() === '전체' || item.region === activeTab();
+
+    function renderNav() {
+      viewLinks.forEach(link => {
+        const isActive = link.dataset.viewLink === state.view;
+        link.classList.toggle('border-celadon-700', isActive);
+        link.classList.toggle('font-semibold', isActive);
+        link.classList.toggle('text-celadon-900', isActive);
+        link.classList.toggle('border-transparent', !isActive);
+        link.classList.toggle('text-ink-600', !isActive);
+        if (isActive) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      });
+      dom.viewWork.classList.toggle('hidden', state.view !== 'work');
+      dom.viewSongs.classList.toggle('hidden', state.view !== 'songs');
+    }
+
+    function renderRegionTabs() {
+      const view = VIEWS[state.view];
+      const items = state.view === 'work' ? state.workItems : state.songs;
+      dom.regionTabs.innerHTML = view.tabs.map(tab => {
+        const isActive = activeTab() === tab;
+        const count = tab === '전체' ? items.length : items.filter(item => item.region === tab).length;
+        return `<button type="button" data-tab="${tab}" aria-pressed="${isActive}"
+          class="touch-button focus-ring px-2.5 ${isActive ? 'bg-celadon-700 font-semibold text-white' : 'text-ink-600 hover:bg-ink-100'}">
+          ${view.tabLabel(tab)}<span class="ml-1 text-xs ${isActive ? 'text-celadon-100' : 'text-ink-400'}">${count}</span></button>`;
+      }).join('');
+    }
+
+    /* ===== 작업 현황 렌더링 ===== */
+    const isUploaded = item => Boolean(item.uploadDate);
+    const isReadyToUpload = item => item.steps.every(status => status === '완료');
+
+    function statusCell(className, content, screenReaderText = '') {
+      const srText = screenReaderText ? `<span class="sr-only">${screenReaderText}</span>` : '';
+      return `<td class="px-0.5 py-2.5 text-center"><span class="status-pill ${className}">${content}${srText}</span></td>`;
+    }
+
+    function uploadCell(item) {
+      if (isUploaded(item)) return statusCell('status-done', escapeHtml(item.uploadDate), ' 업로드');
+      if (isReadyToUpload(item)) return statusCell('status-working', '대기', ' 중, 업로드 차례');
+      return statusCell('status-wait', '<span aria-hidden="true">–</span>', '미업로드');
+    }
+
+    function workRow(item) {
+      const uploaded = isUploaded(item);
+      return `<tr class="${uploaded ? 'bg-ink-50' : ''}">
+        <td class="cell-small py-2.5 text-center text-ink-400">${escapeHtml(item.order)}</td>
+        <td class="cell-small py-2.5 text-ink-600">${escapeHtml(shortRegionName(item.region))}</td>
+        <th scope="row" class="py-2.5 pr-1 font-normal">
+          <span class="block truncate text-[13px] sm:text-base ${uploaded ? 'text-ink-600' : 'text-ink-800'}" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
+        </th>
+        ${item.steps.map(status => statusCell(STATUS_CLASS[status], status)).join('')}
+        ${uploadCell(item)}
+      </tr>`;
+    }
+
+    function renderWorkView() {
+      const items = state.workItems.filter(matchesTab);
+      dom.workSummary.textContent = items.length ? `${items.filter(isUploaded).length}곡 업로드 완료` : '';
+
+      if (!items.length) {
+        const message = state.workItems.length
+          ? '이 지역에서 작업 중인 곡이 없습니다.'
+          : '아직 시작된 작업이 없습니다. 시트 [진행현황] 탭에 곡제목을 입력하면 여기에 나타납니다.';
+        dom.workRows.innerHTML = `<tr><td colspan="7" class="cell-empty">${message}</td></tr>`;
+        return;
+      }
+      dom.workRows.innerHTML = items.map(workRow).join('');
+    }
+
+    /* ===== 곡 자료 렌더링 ===== */
+    const CHECK_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>';
+
+    function songRow(song) {
+      const checkMark = song.captionChecked
+        ? `<span class="inline-flex items-center gap-1 text-celadon-700">${CHECK_ICON}확인</span>`
+        : '<span class="text-ink-400">미확인</span>';
+      return `<tr>
+        <td class="cell-small py-1 text-center text-ink-400">${escapeHtml(song.number)}</td>
+        <td class="cell-small py-1 text-ink-600">${escapeHtml(song.region)}</td>
+        <th scope="row" class="py-1 pr-1 font-normal">
+          <button type="button" data-song-index="${song.index}"
+            class="focus-ring flex min-h-[44px] w-full items-center rounded text-left text-[13px] text-celadon-900 sm:text-base">
+            <span class="truncate">${escapeHtml(song.title)}</span><span class="sr-only">, 가사 보기</span>
+          </button>
+        </th>
+        <td class="cell-small py-1 text-center">${checkMark}</td>
+      </tr>`;
+    }
+
+    function renderSongsView() {
+      const query = normalizeTitle(state.songQuery);
+      const songs = state.songs.filter(song => matchesTab(song) && (!query || normalizeTitle(song.title).includes(query)));
+      dom.songsSummary.textContent = `${songs.length}곡 · 캡션 수정 확인 ${songs.filter(song => song.captionChecked).length}곡`;
+
+      if (!songs.length) {
+        const message = state.songs.length ? '찾는 곡이 없습니다. 검색어를 확인하세요.' : '곡 자료가 없습니다. 시트 [곡자료] 탭을 확인하세요.';
+        dom.songRows.innerHTML = `<tr><td colspan="4" class="cell-empty">${message}</td></tr>`;
+        return;
+      }
+      dom.songRows.innerHTML = songs.map(songRow).join('');
+    }
+
+    /* ===== 가사 팝업 ===== */
+    function infoRow(label, value) {
+      return value ? `<dt class="text-ink-600">${label}</dt><dd>${escapeHtml(value)}</dd>` : '';
+    }
+
+    function openLyricsDialog(songIndex) {
+      const song = state.songs[songIndex];
+      if (!song) return;
+      state.lastOpenedSong = songIndex;
+
+      dom.lyricsMeta.textContent = `${song.region}${song.number ? ` ${song.number}번` : ''}`;
+      dom.lyricsTitle.textContent = song.title;
+      dom.lyricsCheck.textContent = song.captionChecked ? '캡션 가사 확인·재입력 완료' : '캡션 가사 확인 전';
+      dom.lyricsCheck.classList.toggle('status-done', song.captionChecked);
+      dom.lyricsCheck.classList.toggle('bg-ink-100', !song.captionChecked);
+      dom.lyricsCheck.classList.toggle('text-ink-600', !song.captionChecked);
+
+      dom.lyricsBody.innerHTML = song.lyrics
+        ? `<p class="whitespace-pre-line font-serif text-base leading-loose md:text-lg">${escapeHtml(song.lyrics)}</p>`
+        : '<p class="rounded-md border border-dashed border-ink-200 px-4 py-5 text-sm text-ink-600">가사가 아직 입력되지 않았습니다. 시트 [곡자료] 탭의 가사 칸에 붙여 넣으면 여기에 표시됩니다.</p>';
+
+      const info = infoRow('반주', song.accompaniment) + infoRow('연주', song.performer) + infoRow('비고', song.note);
+      dom.lyricsInfo.innerHTML = info;
+      dom.lyricsInfo.classList.toggle('hidden', !info);
+
+      dom.lyricsDialog.showModal();
+      dom.lyricsClose.focus();
+    }
+
+    function restoreSongFocus() {
+      dom.songRows.querySelector(`[data-song-index="${state.lastOpenedSong}"]`)?.focus();
+    }
+
+    /* ===== 화면 전환 (주소 #work / #songs) ===== */
+    const VIEW_RENDERERS = { work: renderWorkView, songs: renderSongsView };
+    const viewFromHash = () => (location.hash === '#songs' ? 'songs' : 'work');
+
+    function render() {
+      renderNav();
+      renderRegionTabs();
+      VIEW_RENDERERS[state.view]();
+    }
+
+    /* ===== 이벤트 ===== */
+    function bindEvents() {
+      window.addEventListener('hashchange', () => { // 링크 클릭, 뒤로·앞으로 가기
+        state.view = viewFromHash();
+        render();
+      });
+
+      dom.regionTabs.addEventListener('click', event => {
+        const tabButton = event.target.closest('[data-tab]');
+        if (!tabButton) return;
+        state.activeTab[state.view] = tabButton.dataset.tab;
+        render();
+        dom.regionTabs.querySelector(`[data-tab="${tabButton.dataset.tab}"]`)?.focus();
+      });
+
+      dom.songRows.addEventListener('click', event => {
+        const songButton = event.target.closest('[data-song-index]');
+        if (songButton) openLyricsDialog(Number(songButton.dataset.songIndex));
+      });
+
+      dom.songSearch.addEventListener('input', event => {
+        state.songQuery = event.target.value.trim();
+        renderSongsView();
+      });
+
+      dom.reloadButton.addEventListener('click', loadData);
+      dom.lyricsClose.addEventListener('click', () => dom.lyricsDialog.close());
+      dom.lyricsDialog.addEventListener('click', event => {
+        if (event.target === dom.lyricsDialog) dom.lyricsDialog.close(); // 바깥 영역 클릭
+      });
+      dom.lyricsDialog.addEventListener('close', restoreSongFocus);
+    }
+
+    /* ===== 시작 ===== */
+    bindEvents();
+    state.view = viewFromHash();
+    loadData();
+  </script>
+</body>
+</html>
