@@ -334,8 +334,9 @@
     function renderRegionTabs() {
       const view = VIEWS[state.view];
       const items = state.view === 'work' ? state.workItems : state.songs;
+      const searchingAll = state.view === 'songs' && isSearchingSongs(); // 검색 중에는 지역 탭 선택 해제
       dom.regionTabs.innerHTML = view.tabs.map(tab => {
-        const isActive = activeTab() === tab;
+        const isActive = activeTab() === tab && !searchingAll;
         const count = tab === '전체' ? items.length : items.filter(item => item.region === tab).length;
         return `<button type="button" data-tab="${tab}" aria-pressed="${isActive}"
           class="touch-button focus-ring px-2.5 ${isActive ? 'bg-celadon-700 font-semibold text-white' : 'text-ink-600 hover:bg-ink-100'}">
@@ -405,10 +406,15 @@
       </tr>`;
     }
 
+    const isSearchingSongs = () => Boolean(normalizeTitle(state.songQuery));
+
     function renderSongsView() {
       const query = normalizeTitle(state.songQuery);
-      const songs = state.songs.filter(song => matchesTab(song) && (!query || normalizeTitle(song.title).includes(query)));
-      dom.songsSummary.textContent = `${songs.length}곡 · 캡션 수정 확인 ${songs.filter(song => song.captionChecked).length}곡`;
+      const songs = query
+        ? state.songs.filter(song => normalizeTitle(song.title).includes(query)) // 검색어가 있으면 전체 지역에서 찾기
+        : state.songs.filter(matchesTab);
+      const scope = query ? `전체 지역에서 '${state.songQuery}' 검색: ` : '';
+      dom.songsSummary.textContent = `${scope}${songs.length}곡 · 캡션 수정 확인 ${songs.filter(song => song.captionChecked).length}곡`;
 
       if (!songs.length) {
         const message = state.songs.length ? '찾는 곡이 없습니다. 검색어를 확인하세요.' : '곡 자료가 없습니다. 시트 [곡자료] 탭을 확인하세요.';
@@ -472,6 +478,10 @@
         const tabButton = event.target.closest('[data-tab]');
         if (!tabButton) return;
         state.activeTab[state.view] = tabButton.dataset.tab;
+        if (state.view === 'songs' && state.songQuery) { // 검색 중 지역 탭을 누르면 검색을 지우고 그 지역 보기
+          state.songQuery = '';
+          dom.songSearch.value = '';
+        }
         render();
         dom.regionTabs.querySelector(`[data-tab="${tabButton.dataset.tab}"]`)?.focus();
       });
@@ -483,6 +493,7 @@
 
       dom.songSearch.addEventListener('input', event => {
         state.songQuery = event.target.value.trim();
+        renderRegionTabs();
         renderSongsView();
       });
 
